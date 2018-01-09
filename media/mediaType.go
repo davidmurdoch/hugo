@@ -39,6 +39,14 @@ type Type struct {
 	Delimiter string `json:"delimiter"` // defaults to "."
 }
 
+func Reverse(s string) string {
+	r := []rune(s)
+	for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {
+		r[i], r[j] = r[j], r[i]
+	}
+	return string(r)
+}
+
 // FromString creates a new Type given a type sring on the form MainType/SubType and
 // an optional suffix, e.g. "text/html" or "text/html+html".
 func FromString(t string) (Type, error) {
@@ -48,15 +56,17 @@ func FromString(t string) (Type, error) {
 		return Type{}, fmt.Errorf("cannot parse %q as a media type", t)
 	}
 	mainType := parts[0]
-	subParts := strings.Split(parts[1], "+")
+	subParts := strings.SplitN(Reverse(parts[1]), "+", 1)
 
-	subType := subParts[0]
+	var subType string
 	var suffix string
 
 	if len(subParts) == 1 {
+		subType = Reverse(subParts[0])
 		suffix = subType
 	} else {
-		suffix = subParts[1]
+		subType = Reverse(subParts[1])
+		suffix = Reverse(subParts[0])
 	}
 
 	return Type{MainType: mainType, SubType: subType, Suffix: suffix, Delimiter: defaultDelimiter}, nil
@@ -152,12 +162,6 @@ func DecodeTypes(maps ...map[string]interface{}) (Types, error) {
 
 	for _, mm := range maps {
 		for k, v := range mm {
-			// It may be tempting to put the full media type in the key, e.g.
-			//  "text/css+css", but that will break the logic below.
-			if strings.Contains(k, "+") {
-				return Types{}, fmt.Errorf("media type keys cannot contain any '+' chars. Valid example is %q", "text/css")
-			}
-
 			found := false
 			for i, vv := range m {
 				// Match by type, i.e. "text/css"
